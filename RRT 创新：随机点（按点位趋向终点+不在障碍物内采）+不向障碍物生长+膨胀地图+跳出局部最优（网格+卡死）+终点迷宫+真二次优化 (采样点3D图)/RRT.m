@@ -9,23 +9,28 @@
 %% 流程初始化
 clear all; close all;
 m=0;
-% x_I=1; y_I=1;           % 设置初始点%%%%%%%%%%sy1
+% x_I=10; y_I=10;           % 设置初始点%%%%%%%%%%sy1
 % x_G=790; y_G=790;       % 设置目标点
-% x_I=1; y_I=1;           % 设置初始点%%%%%%%%%%sy2
-% x_G=600; y_G=720;       % 设置目标点
-x_I=10; y_I=790;           % 设置初始点%%%%%%%%%%%%%sy3
-x_G=790; y_G=10;       % 设置目标点
+x_I=1; y_I=1;           % 设置初始点%%%%%%%%%%sy2
+x_G=400; y_G=700;       % 设置目标点   %sy22(600,720)
+% x_I=10; y_I=790;           % 设置初始点%%%%%%%%%%%%%sy3
+% x_G=790; y_G=10;       % 设置目标点
 Thr=30;                 % 设置目标点阈值 阈值大了会导致最后一个点直连穿过障碍物
-Delta= 60;              % 设置扩展步长
+Delta= 30;              % 设置扩展步长
 initial_radius=10;       %初始化搜索半径
 delta_radius=80;         %半径增加步长
-safeDistance=0;         %安全距离
+safeDistance=5;         %安全距离
 a=3;%“碰撞逃逸增幅因子”（Collision Escape Amplification Factor, 缩写为 CEAF）
 n=0;                    %记新点卡障碍物中的次数
 last_safepoint=[0,0];
 distance_shengyu=sqrt((x_G - x_I)^2 + (y_G - y_I)^2);%初始化节点与终点的最近距离
-deadEndThreshold = 4; % 死胡同区域的阈值，deadEndGrid超过这个阈值的区域将被视为死胡同。
+deadEndThreshold = 3; % 死胡同区域的阈值，deadEndGrid超过这个阈值的区域将被视为死胡同。
 
+
+% 假设地图大小为800x800，我们将其分成10x10的网格  %%%3D图用
+grid_size = 15; % 3D图网格的行列数
+map_size = 800; % 地图尺寸
+density_map = zeros(grid_size, grid_size); % 初始化3D图密度矩阵
 %% 建树初始化  T为结构体，v为结构体中数组，T.v(1)表示树中第一个节点
 T.v(1).x = x_I;         % T是我们要做的树，v是节点，这里先把起始点加入到T里面来
 T.v(1).y = y_I; 
@@ -36,7 +41,7 @@ T.v(1).indPrev = 0;     %
 %% 开始搜索并构建树
 figure(1);
 % ImpRgb=imread('newmap.png');%读取地图
-ImpRgb=imread('sy3.png');%读取地图
+ImpRgb=imread('sy24.png');%读取地图
 % Imp=rgb2gray(ImpRgb);
 % imshow(Imp)
 % 如果图像是彩色的，则将其转换为灰度图像
@@ -53,15 +58,15 @@ se = strel('disk', safeDistance); % 使用半径为10的圆形结构元素
 dilatedImage = imdilate(binaryImage, se);
 % 将膨胀后的二值图像转换为白底黑障碍物的灰度图像
 dilatedImageInvertedGray = uint8(~dilatedImage) * 255;
-imshow(dilatedImageInvertedGray);
-% imshow(Imp);
+% imshow(dilatedImageInvertedGray);%显示膨胀后地图
+imshow(Imp);%显示膨胀前地图
 
 %%%%%%%%%%%%%%%%%%%%%%%%% 初始化网格来记录采样点密度和死胡同区域
 gridSize = [10, 10]; % 设置网格的尺寸，根据实际地图大小调整
 samplingGrid = zeros(gridSize);%用于记录每个网格区域的采样点数量
 deadEndGrid = zeros(gridSize);%树未被成功扩展时计数，用于记录每个区域是否被标记为死胡同
-deadEndThreshold = 4; % 死胡同区域的阈值，deadEndGrid超过这个阈值的区域将被视为死胡同。
-
+% deadEndThreshold = 4; % 死胡同区域的阈值，deadEndGrid超过这个阈值的区域将被视为死胡同。
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 xL=size(Imp,1);%地图x轴长度800
@@ -103,7 +108,15 @@ for iter = 1:6000%最多生成3000次随机点
        else
        end
     end
-    plot(p_rand(1), p_rand(2), 'yo', 'MarkerSize',3, 'MarkerFaceColor','y');
+%     plot(p_rand(1), p_rand(2), 'yo', 'MarkerSize',3, 'MarkerFaceColor','y')%画随机点
+    
+    % 计算p_rand所在的网格单元
+    x_index = ceil((p_rand(1) / map_size) * grid_size);
+    y_index = grid_size - ceil((p_rand(2) / map_size) * grid_size) + 1;
+    
+    % 增加该网格单元的密度
+    density_map(y_index, x_index) = density_map(y_index, x_index) + 1;
+    
     m=m+1;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -194,7 +207,7 @@ for iter = 1:6000%最多生成3000次随机点
     if min_distance <= Delta
         p_new = p_rand;
     else
-        p_new(1) = p_near(1) + round( ( p_rand(1) - p_near(1) ) * Delta / min_distance );
+        p_new(1) = p_near(1) + round( ( p_rand(1) - p_near(1) ) * Delta / min_distance );%斜向走步长那么远
         p_new(2) = p_near(2) + round( ( p_rand(2) - p_near(2) ) * Delta / min_distance );
         gridIndex = ceil(p_new ./ (size(Imp) ./ gridSize)); % 计算新节点网格坐标
 %         disp(['Grid Index Before Update: ', num2str(gridIndex)]);
@@ -227,7 +240,8 @@ for iter = 1:6000%最多生成3000次随机点
     end
     disp(['n: ', num2str(n)]);
     count=count+1;
-    
+
+        
 %%%%%%%%%%%%%%%%%%%%%%%%%%采样点按照节点距离终点最近距离趋向于终点用%%%%%%%%%
     distance_pnew_goal=sqrt((x_G - p_new(1))^2 + (y_G - p_new(2))^2);%计算新点与终点间距离，并更新最短距离
     if distance_pnew_goal<distance_shengyu
@@ -246,8 +260,28 @@ for iter = 1:6000%最多生成3000次随机点
     T.v(count).yPrev = p_near(2);
 %     T.v(count).dist = min_distance; %存疑，应该是新节点与父节点距离 ，而不是父节点与随机点距离
     T.v(count).dist = sqrt((p_new(1) - p_near(1))^2 + (p_new(2) -p_near(2))^2); %改
-        
     
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    if collisionChecking(p_new, [x_G, y_G], dilatedImageInvertedGray)%如果pnew与终点之间无障碍物则直接连接
+    % 如果p_new到目标点之间无障碍
+    elapsedTime = toc; % 结束计时并获取经过的时间
+    T.v(count+1).x = x_G; % 将目标点作为新的节点加入树中
+    T.v(count+1).y = y_G;
+    T.v(count+1).xPrev = p_new(1);
+    T.v(count+1).yPrev = p_new(2);
+    T.v(count+1).dist = sqrt((x_G - p_new(1))^2 + (y_G - p_new(2))^2); % 计算距离
+    T.v(count+1).indPrev = count; % 将当前节点设置为新节点的父节点
+    
+    % 更新路径绘制
+    plot(x_G, y_G, 'go', 'MarkerSize',5, 'MarkerFaceColor','g'); % 绘制目标点
+    line([p_new(1), x_G], [p_new(2), y_G], 'Marker','.','LineStyle','-','color','g','LineWidth', 1); % 连接新节点和目标点
+    
+
+    break; % 跳出循环
+    end
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ 
+ 
     %Step 5:检查是否到达目标点附近 
     %提示：注意使用目标点阈值Thr，若当前节点和终点的欧式距离小于Thr，则跳出当前for循环
     new_distance = sqrt( ( p_new(1) - x_G )^2 + ( p_new(2) - y_G )^2 );
@@ -265,9 +299,11 @@ for iter = 1:6000%最多生成3000次随机点
     %提示 2：在判断终点条件弹出for循环前，记得把p_near和p_new之间的路径画出来
     plot(p_new(1), p_new(2), 'bo', 'MarkerSize',2, 'MarkerFaceColor','b'); % 绘制p_new
     line( [p_new(1) p_near(1)], [p_new(2) p_near(2)], 'Marker','.','LineStyle','-'); %连接p_near和p_new
+    
+
     hold on;
    
-%     pause(0.01); %暂停0.1s，使得RRT扩展过程容易观察
+    pause(0.01); %暂停0.1s，使得RRT扩展过程容易观察
     deadEndGrid(deadEndGrid >= deadEndThreshold) = deadEndThreshold;
 end
  
@@ -307,10 +343,11 @@ end
 %     pause(0.1); %暂停0.1s，使得RRT扩展过程容易观察
 % end
 for i=1 :1: size(path,1)-1%改进：倒着连，从path(1)到path(2)即倒第一个点到倒第二个点开始连线，连到path倒第二行到最后一行即第二个点到第一个点结束
-    line( [path(i,1) path(i+1,1)], [path(i,2) path(i+1,2)], 'Marker','.','LineStyle','-','color','r'); %连接p_near和p_new
+    line( [path(i,1) path(i+1,1)], [path(i,2) path(i+1,2)], 'Marker','.','LineStyle','-','color','g','LineWidth', 1); %连接p_near和p_new
     hold on;
-%     pause(0.01); %暂停0.1s，使得RRT扩展过程容易观察
+    pause(0.01); %暂停0.1s，使得RRT扩展过程容易观察
 end
+
 
 
 
@@ -342,21 +379,185 @@ while ~isequal(currentNode, [x_G, y_G])%一直执行，直到 currentNode（当前节点）到
     disp(['Furthest Node: ', num2str(furthestNode)]);
 
 end
+% elapsedTime = toc; % 结束计时并获取经过的时间
 samplingGrid
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 基于 optimizedPath 进行插值生成 densePath
+densePath = []; % 初始化插值后的路径
+for i = 1:size(optimizedPath, 1)-1
+    segmentStart = optimizedPath(i,:);
+    segmentEnd = optimizedPath(i+1,:);
+    % 线性插值来生成中间点
+    
+    %pointDensityPerUnit = 1; % 每单位长度的点密度
+    %distance = norm(segmentStart - segmentEnd);
+    %numPoints = max(2, round(distance * pointDensityPerUnit));%动态插值密度
+    
+    interpolatedX = linspace(segmentStart(1), segmentEnd(1), 20);%第三个参数为插值密度
+    interpolatedY = linspace(segmentStart(2), segmentEnd(2), 20);
+    segmentPoints = [interpolatedX' interpolatedY'];
+    densePath = [densePath; segmentPoints(1:end-1,:)]; % 避免重复添加终点
+end
+densePath = [densePath; optimizedPath(end,:)]; % 确保最终路径包括终点
+% plot(densePath(:,1), densePath(:,2), 'bo', 'MarkerSize', 2, 'MarkerFaceColor', 'b');
+
+
+
+
+cutPoint = [0, 0]; 
+finalPath = [densePath(1, :)]; % 开始于起点
+i = 2; % 从densePath的第二个点开始
+
+while i <= size(densePath, 1)
+    currentPoint = finalPath(end, :); % 当前点始终是finalPath的最后一个点
+    nextPathPoint = densePath(i, :); % 下一个路径点是densePath中的点
+    
+    % 检查从当前点到下一个路径点是否有碰撞
+    if ~collisionChecking(currentPoint, densePath(i, :), dilatedImageInvertedGray)
+        % 如果有碰撞，找到从当前点到上一个成功连接的路径点之间的切点
+        cutPoint = findClosestPointToObstacle(currentPoint, densePath(i-1, :), dilatedImageInvertedGray, 30);
+        k=i
+        finalPath = [finalPath; cutPoint]; % 添加切点到最终路径
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                % 若cutPoint与densePath(i, :)的连线与障碍物发生了碰撞
+        if ~collisionChecking(cutPoint, densePath(i, :), dilatedImageInvertedGray)%若切点与i=i+1的路点有碰撞
+            growDirection = densePath(i-1, :) - cutPoint;% 定义生长方向，这里是切点向densePath(i-1)生长
+            growDirectionNormalized = growDirection / norm(growDirection); % 单位化生长方向
+            growStepSize = 20; % 生长步长，根据需要调整
+            
+            while true
+                % 尝试在生长方向上移动一步
+                growPoint = cutPoint + growStepSize * growDirectionNormalized;
+                % 检查growPoint到densePath(i, :)是否发生碰撞
+                if collisionChecking(growPoint, densePath(i, :), dilatedImageInvertedGray)
+                    % 如果没有发生碰撞，将growPoint加入finalPath并跳出循环
+                    finalPath = [finalPath; growPoint];                   
+                    break;
+                else
+                    % 如果仍然发生碰撞，更新cutPoint为新的growPoint并继续循环
+                    cutPoint = growPoint;
+                end
+            end
+        else
+            % 如果cutPoint到densePath(i, :)没有碰撞，直接将cutPoint加入finalPath
+%             finalPath = [finalPath; cutPoint];
+%         plot(cutPoint(1), cutPoint(2), 'ro', 'MarkerSize', 5, 'MarkerFaceColor', 'r'); % 使用红色圆圈标记切点
+
+        end
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        
+        
+%         plot(cutPoint(1), cutPoint(2), 'ro', 'MarkerSize', 5, 'MarkerFaceColor', 'r'); % 使用红色圆圈标记切点
+        % 更新i以跳过当前发生碰撞的点，继续检查后续点
+%         i = i + 2;
+    else
+%         finalPath = [finalPath; nextPathPoint]; % 没有碰撞直接添加下一个路径点
+        i = i + 1; % 移动到下一个路径点
+        
+    end
+%     plot(finalPath(:,1), finalPath(:,2), 'r-', 'LineWidth', 3); % 使用紫色线条
+
+    % 检查是否已经可以直接连接到终点
+    if collisionChecking(finalPath(end, :), densePath(end, :), dilatedImageInvertedGray)
+%             elapsedTime = toc; % 结束计时并获取经过的时间
+
+        finalPath = [finalPath; densePath(end, :)]; % 直接连接到终点
+        break; % 完成路径构建
+    end
+end
+
+% 绘制最终路径
+% figure; imshow(dilatedImageInvertedGray); hold on;
+plot(finalPath(:,1), finalPath(:,2), 'r-', 'LineWidth', 3); % 使用紫色线条
+
+
+% 初始化最终路径和当前起点
+% finalPath = [optimizedPath(1,:)]; % 起始于优化路径的起点
+% currentStart = optimizedPath(1,:); % 当前起始点
+% 
+% i = 2; % 从优化路径的第二个点开始探索
+% while i <= size(densePath, 1)
+%     nextPoint = densePath(i,:);
+%     if collisionChecking(currentStart, nextPoint, dilatedImageInvertedGray)
+%         % 如果当前起点到下一个点之间没有障碍物
+%         if i == size(densePath, 1) || ~collisionChecking(currentStart, densePath(i + 1,:), dilatedImageInvertedGray)
+%             % 如果下一个点是最后一个点或下一个点到当前起点之间存在障碍物
+%             tangentPoint = nextPoint; % 确定当前点为切点
+%             finalPath = [finalPath; tangentPoint]; % 添加切点到最终路径
+%             currentStart = tangentPoint; % 更新当前起点为新的切点
+%             % 如果已经是densePath中的最后一个点，跳出循环
+%             if i == size(densePath, 1)
+%                 break;
+%             end
+%         end
+%     else
+%         % 如果当前起点到下一个点之间存在障碍物，则回退一步，因为前一个点可能更接近切点
+%         finalPath(end,:) = []; % 移除最后一个点
+%         i = i - 2; % 回退到前一个点继续尝试
+%         currentStart = finalPath(end,:); % 更新当前起点为最终路径的最后一个点
+%     end
+%     i = i + 1;
+% end
+% for i = 2:size(finalPath, 1)-1 % 跳过起点和终点，仅绘制中间的切点
+%     plot(finalPath(i,1), finalPath(i,2), 'o', 'MarkerSize', 8, 'MarkerEdgeColor', 'b', 'MarkerFaceColor', 'y');
+% end
+% % 确保终点被包含在最终路径中
+% if ~isequal(finalPath(end,:), [x_G, y_G])
+%     if collisionChecking(finalPath(end,:), [x_G, y_G], dilatedImageInvertedGray)
+%         finalPath = [finalPath; x_G, y_G];
+%     end
+% end
+% 
+% % 绘制最终路径
+% % figure; imshow(dilatedImageInvertedGray); hold on;
+% plot(finalPath(:,1), finalPath(:,2), 'm-', 'LineWidth', 2); % 使用紫色线表示最终路径
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % 画出优化后的路径
 total_length = 0;%二次优化后总长度
-for i = 1:size(optimizedPath, 1) - 1
-    line([optimizedPath(i, 1), optimizedPath(i + 1, 1)], [optimizedPath(i, 2), optimizedPath(i + 1, 2)], 'Color', 'k', 'LineWidth', 2);%二次优化连线
-    segment_length = sqrt((optimizedPath(i+1, 1) - optimizedPath(i, 1))^2 + (optimizedPath(i+1, 2) - optimizedPath(i, 2))^2);%二次优化每段长度
+for i = 1:size(finalPath, 1) - 1
+    line([finalPath(i, 1), finalPath(i + 1, 1)], [finalPath(i, 2), finalPath(i + 1, 2)], 'Color', 'r', 'LineWidth', 1);%二次优化连线
+    segment_length = sqrt((finalPath(i+1, 1) - finalPath(i, 1))^2 + (finalPath(i+1, 2) - finalPath(i, 2))^2);%二次优化每段长度
     total_length = total_length + segment_length;%二次优化后总长度
 end
 
-num_of_nodes = size(optimizedPath, 1);%二次优化后节点数（算起点终点）
+    rectangle('Position', [0.5, 0.5, xL - 1, yL - 1], 'EdgeColor', 'k', 'LineWidth', 2);%画黑框
+%     saveas(gcf, 'testfinal_imrrt_path_sy24.png'); % 将当前图形保存为PNG文件，文件名为'rrt_path.png'
+
+nodes1 = size(path, 1);
+num_of_nodes = size(finalPath, 1);%二次优化后节点数（算起点终点）
 
 disp(['time: ', num2str(elapsedTime)]);
 disp(['(二次优化后)路径长度: ', num2str(total_length)]);
 disp(['迭代次数: ',num2str(m)]);
 disp(['总节点数: ', num2str(count)]);
+disp(['(二次优化前)路径节点数: ', num2str(nodes1)]);
 disp(['(二次优化后)路径节点数: ', num2str(num_of_nodes)]);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% 在RRT算法结束后绘制3D曲面图
+
+% % 创建更密集的网格点用于插值
+[X, Y] = meshgrid(linspace(1, map_size, grid_size*10), linspace(1, map_size, grid_size*10));
+
+% 使用插值来平滑密度图
+Z = interp2(linspace(1, map_size, grid_size), linspace(1, map_size, grid_size), density_map, X, Y, 'spline');
+Z(Z < 0) = 0;
+% 绘制3D曲面图
+figure;
+surf(X, map_size - Y + 1, Z, 'EdgeColor', 'none'); % 去除网格线以获得平滑表面
+set(gca, 'YDir','reverse');%翻转y轴
+colormap jet; % 设置色图为jet，这是一种从蓝色过渡到红色的颜色映射，常用于表示范围或密度的变化。
+colorbar; % 显示色标，用于解释曲面颜色代表的密度值范围。
+xlabel('X');
+ylabel('Y');
+zlabel('Density');
+% title('3D Surface Plot of Random Point Density');
+
+% 根据需要调整视角
+view(-20, 56); % 修改视角以更好地查看曲面
+shading interp; % 平滑着色
+
+saveas(gcf, 'testimrrt_3D_sy24.png');
