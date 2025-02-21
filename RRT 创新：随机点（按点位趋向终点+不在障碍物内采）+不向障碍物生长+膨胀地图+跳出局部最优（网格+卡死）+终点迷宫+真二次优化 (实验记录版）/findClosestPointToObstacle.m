@@ -27,7 +27,7 @@ function cutPoint = findClosestPointToObstacle(startPoint, endPoint, map, stepSi
 
     end
 %         fprintf('Testing point: (%d, %d), Distance: %d\n', testPoint, maxDistance);% 打印测试点和距离信息来观察程序执行状态      
-%         plot(cutPoint(1), cutPoint(2), 'ro', 'MarkerSize', 5, 'MarkerFaceColor', 'r'); % 使用红色圆圈标记切点
+        plot(cutPoint(1), cutPoint(2), 'ro', 'MarkerSize', 5, 'MarkerFaceColor', 'r'); % 使用红色圆圈标记切点
 
     
 end
